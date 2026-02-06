@@ -1,0 +1,48 @@
+name: Backup Mirror to ac4y-safe
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for proper mirroring
+
+      - name: Mirror to ac4y-safe organization
+        env:
+          BACKUP_TOKEN: ${{ secrets.BACKUP_TOKEN }}
+        run: |
+          # Configure git
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+
+          # Extract repo name from GITHUB_REPOSITORY (format: org/repo-name)
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+
+          # Add backup remote
+          git remote add backup https://x-access-token:${BACKUP_TOKEN}@github.com/ac4y-safe/${REPO_NAME}.git || true
+
+          # Create backup repo if it doesn't exist
+          curl -X POST \
+            -H "Authorization: token ${BACKUP_TOKEN}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/orgs/ac4y-safe/repos \
+            -d "{\"name\":\"${REPO_NAME}\",\"description\":\"Backup mirror from ac4y-auto/${REPO_NAME}\",\"private\":false}" \
+            2>/dev/null || echo "Backup repo might already exist"
+
+          # Wait a moment for repo creation
+          sleep 2
+
+          # Push all branches and tags to backup
+          git push backup --all --force || echo "Failed to push branches"
+          git push backup --tags --force || echo "Failed to push tags"
+
+          echo "✅ Successfully mirrored to ac4y-safe/${REPO_NAME}"
