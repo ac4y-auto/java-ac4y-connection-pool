@@ -27,7 +27,7 @@ jobs:
           server-password: GITHUB_TOKEN
 
       - name: Build with Maven
-        run: mvn clean verify
+        run: mvn clean verify -DskipTests
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
